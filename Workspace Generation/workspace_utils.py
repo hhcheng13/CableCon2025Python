@@ -2,18 +2,16 @@ import numpy as np
 
 def eval_poly(coeff, x, y, z):
     """
-    Evaluate quadratic polynomial at grid points.
+    Evaluate linear polynomial at grid points.
     
     Args:
-        coeff: Coefficient array [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9]
+        coeff: Coefficient array [a0, a1, a2, a3] for linear fit
         x, y, z: Grid coordinates
     
     Returns:
         Polynomial values at grid points
     """
-    return (coeff[0] + coeff[1]*x + coeff[2]*y + coeff[3]*z +
-            coeff[4]*x**2 + coeff[5]*y**2 + coeff[6]*z**2 +
-            coeff[7]*x*y + coeff[8]*y*z + coeff[9]*z*x)
+    return coeff[0] + coeff[1]*x + coeff[2]*y + coeff[3]*z
 
 def create_parameter_grid(alpha_min, alpha_max, beta_min, beta_max, 
                          gamma_min, gamma_max, step):
@@ -29,9 +27,12 @@ def create_parameter_grid(alpha_min, alpha_max, beta_min, beta_max,
     Returns:
         List of parameter combinations
     """
-    alphas = np.arange(alpha_min, alpha_max + step, step)
-    betas = np.arange(beta_min, beta_max + step, step)
-    gammas = np.arange(gamma_min, gamma_max + step, step)
+    # alphas = np.arange(alpha_min, alpha_max + step, step)
+    alphas = [alpha_min, alpha_max]
+    # betas = np.arange(beta_min, beta_max + step, step)
+    betas = [beta_min, beta_max]
+    # gammas = np.arange(gamma_min, gamma_max + step, step)
+    gammas = [gamma_min, gamma_max]
     
     # Create all combinations
     param_combinations = []
@@ -42,16 +43,25 @@ def create_parameter_grid(alpha_min, alpha_max, beta_min, beta_max,
     
     return param_combinations
 
-def create_position_grid():
+def create_position_grid(x_min, x_max, y_min, y_max, z_min, z_max, step):
     """
-    Create position grid for q1, q2, q3 (matching MATLAB: 0.4:0.2:0.6).
+    Create position grid for q1, q2, q3 using user-specified min/max/step values.
+    
+    Args:
+        x_min, x_max: Range for x (q1)
+        y_min, y_max: Range for y (q2)
+        z_min, z_max: Range for z (q3)
+        step: Step size for grid
     
     Returns:
         List of position combinations
     """
-    q1_values = np.arange(0.4, 0.6 + 0.01, 0.2)
-    q2_values = np.arange(0.4, 0.6 + 0.01, 0.2)
-    q3_values = np.arange(0.4, 0.6 + 0.01, 0.2)
+    # q1_values = np.arange(x_min, x_max, step)
+    q1_values = [x_min, x_max]  
+    # q2_values = np.arange(y_min, y_max, step)
+    q2_values = [y_min, y_max]
+    # q3_values = np.arange(z_min, z_max, step)
+    q3_values = [z_min, z_max]
     
     position_combinations = []
     for q1 in q1_values:

@@ -20,12 +20,18 @@ def example_basic_analysis():
     data_manager = WorkspaceDataManager()
     
     # Define analysis parameters
+    x_min, x_max = 0.4, 0.6
+    y_min, y_max = 0.4, 0.6
+    z_min, z_max = 0.4, 0.6
     alpha_min, alpha_max = 0, 0
     beta_min, beta_max = 0, 0
     gamma_min, gamma_max = 0, 0
     step = 0.02
     
     print(f"Analysis parameters:")
+    print(f"  X range: [{x_min}, {x_max}]")
+    print(f"  Y range: [{y_min}, {y_max}]")
+    print(f"  Z range: [{z_min}, {z_max}]")
     print(f"  Alpha range: [{alpha_min}, {alpha_max}]")
     print(f"  Beta range: [{beta_min}, {beta_max}]")
     print(f"  Gamma range: [{gamma_min}, {gamma_max}]")
@@ -34,6 +40,7 @@ def example_basic_analysis():
     # Run analysis
     print("\nRunning analysis...")
     intersection_points_sets, total_time = analyzer.run_full_analysis(
+        x_min, x_max, y_min, y_max, z_min, z_max,
         alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step
     )
     

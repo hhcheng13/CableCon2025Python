@@ -5,15 +5,18 @@ from compute_h_i_u_coefficients import compute_h_i_u_coefficients
 from workspace_utils import eval_poly, create_parameter_grid, create_position_grid, compute_intersection_points
 
 class WorkspaceAnalyzer:
-    def __init__(self):
+    def __init__(self, num_cables=7):
         self.base_points = None
         self.ee_points = None
-        self.num_cables = 0
+        self.num_cables = num_cables
         
     def initialize_robot_config(self):
         """Initialize cable robot configuration."""
-        self.base_points, self.ee_points = get_cable_robot_config()
-        self.num_cables = self.base_points.shape[1]
+        self.base_points, self.ee_points = get_cable_robot_config(self.num_cables)
+        actual_num_cables = self.base_points.shape[1]
+        if actual_num_cables != self.num_cables:
+            print(f"[WARNING] Expected {self.num_cables} cables but got {actual_num_cables}")
+            self.num_cables = actual_num_cables
         print(f"[DEBUG] Initialized robot with {self.num_cables} cables")
     
     def create_spatial_grid(self, reference_point, step):
@@ -36,41 +39,49 @@ class WorkspaceAnalyzer:
     def compute_valid_region_optimized(self, all_coeffs, xGrid, yGrid, zGrid):
         """
         Compute valid region for all coefficient sets at once.
-        
         Args:
             all_coeffs: List of coefficient matrices for all parameter combinations
             xGrid, yGrid, zGrid: 3D grid arrays
-            
         Returns:
             validRegion: Boolean mask of valid points (intersection of all valid regions)
         """
         if not all_coeffs:
             return np.zeros(xGrid.shape, dtype=bool)
-        
-        # Initialize valid region as True (all points valid initially)
-        validRegion = np.ones(xGrid.shape, dtype=bool)
-        
-        print(f"[DEBUG] Computing valid region for {len(all_coeffs)} coefficient sets...")
-        
-        for i, coeffs in enumerate(all_coeffs):
-            # Compute valid region for this coefficient set
-            coeff_det = coeffs[:, -1]
-            polyValues_det = eval_poly(coeff_det, xGrid, yGrid, zGrid)
-            current_valid = np.ones(xGrid.shape, dtype=bool)
-            
-            for j in range(6):
-                coeff = coeffs[:, j]
-                polyValues = eval_poly(coeff, xGrid, yGrid, zGrid)
-                polyValues = np.sign(polyValues_det) * polyValues
-                current_valid &= (polyValues < 0)
-            
-            # Intersection with overall valid region (AND operation)
-            validRegion &= current_valid
-            
-            if (i + 1) % 100 == 0:
-                print(f"[DEBUG] Processed {i + 1}/{len(all_coeffs)} coefficient sets")
-        
-        return validRegion
+
+        # Check if this is the 8-cable case (list of lists)
+        if isinstance(all_coeffs[0], list):
+            # 8-cable case: all_coeffs is a list of lists of coefficient matrices
+            print("[DEBUG] 8-cable case: union of all 7-cable combinations")
+            validRegion = np.zeros(xGrid.shape, dtype=bool)
+            for coeffs_list in all_coeffs:
+                for coeffs in coeffs_list:
+                    coeff_det = coeffs[:, -1]
+                    polyValues_det = eval_poly(coeff_det, xGrid, yGrid, zGrid)
+                    current_valid = np.ones(xGrid.shape, dtype=bool)
+                    for j in range(6):
+                        coeff = coeffs[:, j]
+                        polyValues = eval_poly(coeff, xGrid, yGrid, zGrid)
+                        polyValues = np.sign(polyValues_det) * polyValues
+                        current_valid &= (polyValues < 0)
+                    validRegion |= current_valid  # Union
+            return validRegion
+        else:
+            # 7-cable case: intersection as before
+            validRegion = np.ones(xGrid.shape, dtype=bool)
+            print(f"[DEBUG] Computing valid region for {len(all_coeffs)} coefficient sets...")
+            for i, coeffs in enumerate(all_coeffs):
+                coeff_det = coeffs[:, -1]
+                polyValues_det = eval_poly(coeff_det, xGrid, yGrid, zGrid)
+                current_valid = np.ones(xGrid.shape, dtype=bool)
+                for j in range(6):
+                    coeff = coeffs[:, j]
+                    polyValues = eval_poly(coeff, xGrid, yGrid, zGrid)
+                    polyValues = np.sign(polyValues_det) * polyValues
+                    current_valid &= (polyValues < 0)
+                validRegion &= current_valid
+                if (i + 1) % 100 == 0:
+                    print(f"[DEBUG] Processed {i + 1}/{len(all_coeffs)} coefficient sets")
+            return validRegion
     
     def compute_valid_region(self, coeffs, xGrid, yGrid, zGrid):
         """
@@ -112,7 +123,8 @@ class WorkspaceAnalyzer:
         points = np.column_stack((xValid, yValid, zValid))
         return points
     
-    def analyze_single_cable_optimized(self, cable_index, alpha_min, alpha_max, beta_min, beta_max,
+    def analyze_single_cable_optimized(self, cable_index, x_min, x_max, y_min, y_max, z_min, z_max,
+                                     alpha_min, alpha_max, beta_min, beta_max,
                                      gamma_min, gamma_max, step):
         """
         Analyze workspace for a single cable (optimized version).
@@ -137,7 +149,7 @@ class WorkspaceAnalyzer:
         t_start = time.time()
         
         # Get parameter combinations
-        position_combinations = create_position_grid()
+        position_combinations = create_position_grid(x_min, x_max, y_min, y_max, z_min, z_max, step)
         orientation_combinations = create_parameter_grid(
             alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step
         )
@@ -195,7 +207,8 @@ class WorkspaceAnalyzer:
         
         return intersection_points, computation_time
     
-    def analyze_single_cable(self, cable_index, alpha_min, alpha_max, beta_min, beta_max,
+    def analyze_single_cable(self, cable_index, x_min, x_max, y_min, y_max, z_min, z_max,
+                           alpha_min, alpha_max, beta_min, beta_max,
                            gamma_min, gamma_max, step):
         """
         Analyze workspace for a single cable (original version).
@@ -224,7 +237,7 @@ class WorkspaceAnalyzer:
         t_start = time.time()
         
         # Get parameter combinations
-        position_combinations = create_position_grid()
+        position_combinations = create_position_grid(x_min, x_max, y_min, y_max, z_min, z_max, step)
         orientation_combinations = create_parameter_grid(
             alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step
         )
@@ -256,7 +269,8 @@ class WorkspaceAnalyzer:
         
         return intersection_points, computation_time
     
-    def run_full_analysis(self, alpha_min, alpha_max, beta_min, beta_max,
+    def run_full_analysis(self, x_min, x_max, y_min, y_max, z_min, z_max,
+                         alpha_min, alpha_max, beta_min, beta_max,
                          gamma_min, gamma_max, step, use_optimized=True):
         """
         Run full workspace analysis for all cables.
@@ -284,13 +298,13 @@ class WorkspaceAnalyzer:
         for cable_index in range(self.num_cables):
             if use_optimized:
                 intersection_points, cable_time = self.analyze_single_cable_optimized(
-                    cable_index, alpha_min, alpha_max, beta_min, beta_max, 
-                    gamma_min, gamma_max, step
+                    cable_index, x_min, x_max, y_min, y_max, z_min, z_max,
+                    alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step
                 )
             else:
                 intersection_points, cable_time = self.analyze_single_cable(
-                    cable_index, alpha_min, alpha_max, beta_min, beta_max, 
-                    gamma_min, gamma_max, step
+                    cable_index, x_min, x_max, y_min, y_max, z_min, z_max,
+                    alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step
                 )
             intersection_points_sets[cable_index] = intersection_points
             total_time += cable_time

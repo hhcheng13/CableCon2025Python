@@ -15,36 +15,71 @@ class WorkspaceGUI:
         self.intersection_points_sets = None
         
         # Initialize modules
-        self.analyzer = WorkspaceAnalyzer()
+        self.analyzer = None  # Will be initialized when num_cables is selected
         self.visualizer = WorkspaceVisualizer()
         self.data_manager = WorkspaceDataManager()
 
     def create_widgets(self):
         frame = ttk.Frame(self.root, padding=10)
         frame.grid(row=0, column=0, sticky='nsew')
+        
+        # Add cable configuration section
+        ttk.Label(frame, text='Cable Configuration', font=('Arial', 12, 'bold')).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+        
+        ttk.Label(frame, text='Number of Cables:').grid(row=1, column=0, sticky='e')
+        self.cable_var = tk.StringVar(value='7')
+        cable_combo = ttk.Combobox(frame, textvariable=self.cable_var, values=['7', '8'], state='readonly', width=10)
+        cable_combo.grid(row=1, column=1, sticky='w')
+        cable_combo.bind('<<ComboboxSelected>>', self.on_cable_selection_change)
+        
+        # Add workspace parameters section
+        ttk.Label(frame, text='Workspace Parameters', font=('Arial', 12, 'bold')).grid(row=2, column=0, columnspan=2, pady=(20, 10))
+        
         labels = ['x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max', 'alpha_min', 'alpha_max', 'beta_min', 'beta_max', 'gamma_min', 'gamma_max']
         self.entries = {}
         default_vals = ['0.4', '0.6', '0.4', '0.6', '0.4', '0.6', '0', '0', '0', '0', '0', '0']
         for i, label in enumerate(labels):
-            ttk.Label(frame, text=label).grid(row=i, column=0, sticky='e')
+            ttk.Label(frame, text=label).grid(row=i+3, column=0, sticky='e')
             entry = ttk.Entry(frame)
             entry.insert(0, default_vals[i])
-            entry.grid(row=i, column=1)
+            entry.grid(row=i+3, column=1)
             self.entries[label] = entry
         # Add density (step size) entry
-        ttk.Label(frame, text='Grid Step Size').grid(row=len(labels), column=0, sticky='e')
+        ttk.Label(frame, text='Grid Step Size').grid(row=len(labels)+3, column=0, sticky='e')
         self.density_entry = ttk.Entry(frame)
         self.density_entry.insert(0, '0.02')  # Default to 0.02 to match MATLAB
-        self.density_entry.grid(row=len(labels), column=1)
+        self.density_entry.grid(row=len(labels)+3, column=1)
         run_btn = ttk.Button(frame, text='Run Analysis', command=self.run_analysis)
-        run_btn.grid(row=len(labels)+1, column=0, columnspan=2, pady=10)
+        run_btn.grid(row=len(labels)+4, column=0, columnspan=2, pady=10)
         compare_btn = ttk.Button(frame, text='Compare with MATLAB', command=self.compare_with_matlab)
-        compare_btn.grid(row=len(labels)+2, column=0, columnspan=2, pady=10)
+        compare_btn.grid(row=len(labels)+5, column=0, columnspan=2, pady=10)
+
+    def on_cable_selection_change(self, event=None):
+        """Handle cable selection change."""
+        num_cables = int(self.cable_var.get())
+        print(f"[DEBUG] Cable configuration changed to {num_cables} cables")
+        # Reinitialize analyzer with new cable configuration
+        self.analyzer = WorkspaceAnalyzer(num_cables)
+        self.analyzer.initialize_robot_config()
 
     def run_analysis(self):
         """Run workspace analysis using the modular structure."""
         try:
+            # Get number of cables
+            num_cables = int(self.cable_var.get())
+            
+            # Initialize analyzer if not already done
+            if self.analyzer is None or self.analyzer.num_cables != num_cables:
+                self.analyzer = WorkspaceAnalyzer(num_cables)
+                self.analyzer.initialize_robot_config()
+            
             # Extract parameters from GUI
+            x_min = float(self.entries['x_min'].get())
+            x_max = float(self.entries['x_max'].get())
+            y_min = float(self.entries['y_min'].get())
+            y_max = float(self.entries['y_max'].get())
+            z_min = float(self.entries['z_min'].get())
+            z_max = float(self.entries['z_max'].get())
             alpha_min = float(self.entries['alpha_min'].get())
             alpha_max = float(self.entries['alpha_max'].get())
             beta_min = float(self.entries['beta_min'].get())
@@ -58,6 +93,7 @@ class WorkspaceGUI:
         
         # Run analysis using the analyzer module (optimized version)
         self.intersection_points_sets, total_time = self.analyzer.run_full_analysis(
+            x_min, x_max, y_min, y_max, z_min, z_max,
             alpha_min, alpha_max, beta_min, beta_max, gamma_min, gamma_max, step, use_optimized=True
         )
         
